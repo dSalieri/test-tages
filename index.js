@@ -4,35 +4,37 @@
   const usersPromise = fetchData('https://jsonplaceholder.typicode.com/users');
   const [posts, users] = await Promise.all([postsPromise, usersPromise]);
 
-  const formatedUsers = formateUsersData(posts, users);
+  const formatedUsers = formateUsersData(posts, users, {
+    address: (data) => {
+      const { city, street, suite } = data;
+      return `${city}, ${street}, ${suite}`;
+    },
+    website: (data) => `https://${data}`,
+    company: (data) => data.name,
+    posts: (data) => {
+      const { user, posts } = data;
+      return posts.reduce((acc, post) => {
+        if (user.id === post.userId) {
+          const { id, title, body } = post;
+          const title_corp = `${title.slice(0, 20)}...`;
+          acc.push({ id, title, title_corp, body });
+        }
+        return acc;
+      }, []);
+    },
+  });
   const usersWithPostComments = await addCommentsToUserPosts(formatedUsers, 'Ervin Howell');
 
   console.log(usersWithPostComments);
 })();
 
-function formateUsersData(posts, users) {
-  return users.reduce((acc, item) => {
-    const itemRecord = {};
-
-    if (item.hasOwnProperty('address')) {
-      const { city, street, suite } = item.address;
-      itemRecord.address = `${city}, ${street}, ${suite}`;
-    }
-    if (item.hasOwnProperty('website')) {
-      itemRecord.website = `https://${item.website}`;
-    }
-    if (item.hasOwnProperty('company')) {
-      itemRecord.company = item.company.name;
-    }
-    const postRecord = posts.reduce((acc, post) => {
-      if (item.id === post.userId) {
-        const { id, title, body } = post;
-        const title_corp = `${title.slice(0, 20)}...`;
-        acc.push({ id, title, title_corp, body });
-      }
-      return acc;
-    }, []);
-    return acc.push({ ...item, ...itemRecord, posts: [...postRecord] }), acc;
+function formateUsersData(posts, users, rules) {
+  return users.reduce((acc, user) => {
+    const editedData = {};
+    Object.keys(rules).forEach((keyName) => {
+      editedData[keyName] = user[keyName] ? rules[keyName](user[keyName]) : rules[keyName]({ user, posts });
+    });
+    return acc.push({ ...user, ...editedData }), acc;
   }, []);
 }
 
