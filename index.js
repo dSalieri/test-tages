@@ -41,17 +41,15 @@ function formateUsersData(posts, users, rules) {
 async function addCommentsToUserPosts(users, name) {
   return Promise.all(
     users.map(async (user) => {
-      if (user.name === name) {
-        if (Array.isArray(user.posts)) {
-          const posts = await Promise.all(
-            user.posts.map(async (post) => {
-              const commentsData = await fetchData(`https://jsonplaceholder.typicode.com/posts/${post.id}/comments`);
-              const comments = commentsData.map((comment) => omit(comment, 'postId'));
-              return { ...post, comments };
-            })
-          );
-          return { ...user, posts };
-        }
+      if (user.name === name && Array.isArray(user.posts)) {
+        const posts = await Promise.all(
+          user.posts.map(async (post) => {
+            const commentsData = await fetchData(`https://jsonplaceholder.typicode.com/posts/${post.id}/comments`);
+            const comments = commentsData.map((comment) => omit(comment, 'postId'));
+            return { ...post, comments };
+          })
+        );
+        return { ...user, posts };
       }
       return user;
     })
