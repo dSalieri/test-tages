@@ -14,14 +14,14 @@ function formateUsersData(posts, users) {
   return users.reduce((acc, item) => {
     const itemRecord = {};
 
-    if (item.hasOwnProperty('address')) {
+    if (item.address) {
       const { city, street, suite } = item.address;
       itemRecord.address = `${city}, ${street}, ${suite}`;
     }
-    if (item.hasOwnProperty('website')) {
+    if (item.website) {
       itemRecord.website = `https://${item.website}`;
     }
-    if (item.hasOwnProperty('company')) {
+    if (item.company) {
       itemRecord.company = item.company.name;
     }
     const postRecord = posts.reduce((acc, post) => {
