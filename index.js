@@ -23,9 +23,9 @@
       }, []);
     },
   });
-  const usersWithPostComments = await addCommentsToUserPosts(formatedUsers, 'Ervin Howell');
-
-  console.log(usersWithPostComments);
+  const comments = await receiveCommentsForUserPosts(formatedUsers, 'Ervin Howell');
+  const result = addCommentsToUserPosts(formatedUsers, comments, 'Ervin Howell');
+  console.log(result);
 })();
 
 function formateUsersData(posts, users, rules) {
@@ -38,20 +38,30 @@ function formateUsersData(posts, users, rules) {
   }, []);
 }
 
-async function addCommentsToUserPosts(users, name) {
-  return Promise.all(
-    users.map(async (user) => {
-      if (user.name === name && Array.isArray(user.posts)) {
-        const posts = await Promise.all(
-          user.posts.map(async (post) => {
-            const commentsData = await fetchData(`https://jsonplaceholder.typicode.com/posts/${post.id}/comments`);
-            const comments = commentsData.map((comment) => omit(comment, 'postId'));
-            return { ...post, comments };
-          })
-        );
-        return { ...user, posts };
+function addCommentsToUserPosts(users, comments, name) {
+  const user = users.find((user) => user.name === name);
+  const modifiedPosts = user.posts.reduce((acc, post) => {
+    comments.some((commentsId) => {
+      if (commentsId.postId === post.id) {
+        acc.push({ ...post, comments: commentsId.comments });
+        return true;
       }
-      return user;
+    });
+    return acc;
+  }, []);
+  return users.reduce((acc, user) => {
+    user.name === name ? acc.push({ ...user, posts: modifiedPosts }) : acc.push({ ...user });
+    return acc;
+  }, []);
+}
+
+async function receiveCommentsForUserPosts(users, name) {
+  const user = users.find((user) => user.name === name);
+  return Promise.all(
+    user.posts.map(async (post) => {
+      const postData = await fetchData(`https://jsonplaceholder.typicode.com/posts/${post.id}/comments`);
+      const comments = postData.map((comment) => omit(comment, 'postId'));
+      return { postId: post.id, comments };
     })
   );
 }
