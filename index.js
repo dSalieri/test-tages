@@ -4,7 +4,13 @@
   const usersPromise = fetchData('https://jsonplaceholder.typicode.com/users');
   const [posts, users] = await Promise.all([postsPromise, usersPromise]);
 
-  const formatedUsers = formateUsersData(posts, users, {
+  const specifiedUser = getUserData(users, 'Ervin Howell');
+  const [receivedUserPosts, restPosts] = divideUserPosts(posts, specifiedUser);
+  const receivedComments = await receiveCommentsForPosts(receivedUserPosts);
+  const postsWithComments = getPostsWithComments(receivedUserPosts, receivedComments);
+  const mergedPosts = [...restPosts, ...postsWithComments];
+  const usersWithPosts = getUsersWithPosts(users, mergedPosts);
+  const formatedUsers = getFormateUsersData(usersWithPosts, {
     address: (data) => {
       const { city, street, suite } = data;
       return `${city}, ${street}, ${suite}`;
@@ -12,58 +18,55 @@
     website: (data) => `https://${data}`,
     company: (data) => data.name,
     posts: (data) => {
-      const { user, posts } = data;
-      return posts.reduce((acc, post) => {
-        if (user.id === post.userId) {
-          const { id, title, body } = post;
-          const title_corp = `${title.slice(0, 20)}...`;
-          acc.push({ id, title, title_corp, body });
-        }
-        return acc;
-      }, []);
+      return data.map((post) => {
+        const title_corp = `${post.title.slice(0, 20)}...`;
+        return { ...omit(post, 'userId'), title_corp };
+      });
     },
   });
-  const comments = await receiveCommentsForUserPosts(formatedUsers, 'Ervin Howell');
-  const result = addCommentsToUserPosts(formatedUsers, comments, 'Ervin Howell');
-  console.log(result);
+
+  console.log(formatedUsers);
 })();
 
-function formateUsersData(posts, users, rules) {
-  return users.reduce((acc, user) => {
+function getFormateUsersData(users, rules) {
+  const rulesKeys = Object.keys(rules);
+  return users.map((user) => {
     const editedData = {};
-    Object.keys(rules).forEach((keyName) => {
-      editedData[keyName] = user[keyName] ? rules[keyName](user[keyName]) : rules[keyName]({ user, posts });
-    });
-    return acc.push({ ...user, ...editedData }), acc;
-  }, []);
+    rulesKeys.every((keyName) => (user[keyName] ? (editedData[keyName] = rules[keyName](user[keyName])) : false));
+    return { ...user, ...editedData };
+  });
 }
 
-function addCommentsToUserPosts(users, comments, name) {
-  const user = users.find((user) => user.name === name);
-  const modifiedPosts = user.posts.reduce((acc, post) => {
-    comments.some((commentsId) => {
-      if (commentsId.postId === post.id) {
-        acc.push({ ...post, comments: commentsId.comments });
-        return true;
-      }
-    });
-    return acc;
-  }, []);
-  return users.reduce((acc, user) => {
-    user.name === name ? acc.push({ ...user, posts: modifiedPosts }) : acc.push({ ...user });
+function getPostsWithComments(posts, comments) {
+  return posts.reduce((acc, post) => {
+    comments.some((commentGroup) => (commentGroup.postId === post.id ? acc.push({ ...post, comments: commentGroup.comments }) : false));
     return acc;
   }, []);
 }
 
-async function receiveCommentsForUserPosts(users, name) {
-  const user = users.find((user) => user.name === name);
+function getUsersWithPosts(users, posts) {
+  return users.map((user) => {
+    const usersPosts = posts.reduce((acc, post) => (user.id === post.userId ? acc.push({ ...post }) : false, acc), []);
+    return { ...user, posts: usersPosts };
+  });
+}
+
+async function receiveCommentsForPosts(posts) {
   return Promise.all(
-    user.posts.map(async (post) => {
+    posts.map(async (post) => {
       const postData = await fetchData(`https://jsonplaceholder.typicode.com/posts/${post.id}/comments`);
       const comments = postData.map((comment) => omit(comment, 'postId'));
       return { postId: post.id, comments };
     })
   );
+}
+
+function divideUserPosts(posts, user) {
+  return posts.reduce((acc, post) => (user.id === post.userId ? acc[0].push(post) : acc[1].push(post), acc), [[], []]);
+}
+
+function getUserData(users, name) {
+  return users.find((user) => user.name === name);
 }
 
 async function fetchData(url, params) {
