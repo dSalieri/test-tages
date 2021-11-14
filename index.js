@@ -40,7 +40,7 @@ function getPostsWithComments(posts, comments) {
   const mapComments = new Map(comments.map((commentsGroup) => [commentsGroup.postId, commentsGroup.comments]));
   return posts.map((post) => {
     const commentsGroup = mapComments.get(post.id);
-    return commentsGroup ? { ...post, comments: commentsGroup } : { ...post };
+    return { ...post, ...(commentsGroup ? {comments: commentsGroup} : {})};
   });
 }
 
