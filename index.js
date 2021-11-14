@@ -5,9 +5,9 @@
   const [posts, users] = await Promise.all([postsPromise, usersPromise]);
 
   const specifiedUser = getUserData(users, 'Ervin Howell');
-  const [receivedUserPosts, restPosts] = divideUserPosts(posts, specifiedUser);
-  const receivedComments = await receiveCommentsForPosts(receivedUserPosts);
-  const postsWithComments = getPostsWithComments(receivedUserPosts, receivedComments);
+  const [userPosts, restPosts] = divideUserPosts(posts, specifiedUser);
+  const receivedComments = await receiveCommentsForPosts(userPosts);
+  const postsWithComments = getPostsWithComments(userPosts, receivedComments);
   const mergedPosts = [...restPosts, ...postsWithComments];
   const usersWithPosts = getUsersWithPosts(users, mergedPosts);
   const formatedUsers = getFormateUsersData(usersWithPosts, {
@@ -31,22 +31,22 @@
 function getFormateUsersData(users, rules) {
   const rulesKeys = Object.keys(rules);
   return users.map((user) => {
-    const editedData = {};
-    rulesKeys.every((keyName) => (user[keyName] ? (editedData[keyName] = rules[keyName](user[keyName])) : false));
+    const editedData = rulesKeys.reduce((acc, keyName) => (user[keyName] ? (acc[keyName] = rules[keyName](user[keyName])) : null, acc), {});
     return { ...user, ...editedData };
   });
 }
 
 function getPostsWithComments(posts, comments) {
-  return posts.reduce((acc, post) => {
-    comments.some((commentGroup) => (commentGroup.postId === post.id ? acc.push({ ...post, comments: commentGroup.comments }) : false));
-    return acc;
-  }, []);
+  const mapComments = new Map(comments.map((commentsGroup) => [commentsGroup.postId, commentsGroup.comments]));
+  return posts.map((post) => {
+    const commentsGroup = mapComments.get(post.id);
+    return commentsGroup ? { ...post, comments: commentsGroup } : { ...post };
+  });
 }
 
 function getUsersWithPosts(users, posts) {
   return users.map((user) => {
-    const usersPosts = posts.reduce((acc, post) => (user.id === post.userId ? acc.push({ ...post }) : false, acc), []);
+    const usersPosts = posts.reduce((acc, post) => (user.id === post.userId ? acc.push({ ...post }) : null, acc), []);
     return { ...user, posts: usersPosts };
   });
 }
